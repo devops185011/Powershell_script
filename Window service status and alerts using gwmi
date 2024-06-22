@@ -1,0 +1,81 @@
+
+
+$servers = @("abc.com")
+
+# Define Microsoft Teams webhook URL
+$TeamsWebhookURL = "enter your teams webhook url"
+
+# Function to send alert to Microsoft Teams webhook
+function Send-TeamsAlert {
+    param(
+        [string]$Message
+    )
+    
+    $Body = @{
+        text = $Message
+    } | ConvertTo-Json
+
+    $Result = Invoke-RestMethod -Method Post -Uri $TeamsWebhookURL -Body $Body -ContentType 'application/json'
+}
+# Array to store results
+# Iterate through each server
+foreach ($server in $servers) {
+    write-host "`n---------------------------------------" -ForegroundColor Blue
+    Write-Output "Checking services on $server..."
+    try {
+        # Query services on the remote server where name contains 'jenk' or 'azure'
+        $services = Get-WmiObject -Class Win32_Service -ComputerName $server| Where-Object { $_.Name -like "*jenk*" -or $_.Name -like "*vstsagent.spglobal*" }
+
+        # Check if services were found
+        if ($services) {
+            foreach ($service in $services) {
+                $serviceName = $service.Name
+                $status = $service.State
+                Write-Output "Service '$serviceName' Status on $server : $status"
+
+                if($status -ne 'running'){
+                  
+                  
+                    $mutealert1 = 'fdff'
+                    $mutealert2 = '#'
+                    #$mutealert3 = '#'
+                    if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+
+                   		 $alertMessage = "Service '$serviceName' on server '$server' is stopped."
+                    	Send-TeamsAlert -Message $alertMessage
+                    }
+                    $startSvc=$service.StartService()
+                    $returnval=$startSvc.ReturnValue
+                    #start-sleep 120
+                    if($returnval -eq 0){
+                        if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+
+	                        $recoveryMessage = "Service '$serviceName' on server '$server' is recovered."
+    	                    Send-TeamsAlert -Message $recoveryMessage
+                      		 }
+                      
+                        } else{
+                      
+                      	  if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+
+	                        $recoveryError = "Service '$serviceName' on server '$server' not getting started, please check manually."
+    	                    Send-TeamsAlert -Message $recoveryError
+                          }             
+                     }
+                     
+                
+                
+                } #check if service is stopped
+            }
+        } else {
+                      
+
+            Write-host "No services matching the criteria found on $server" -ForegroundColor yellow
+        }
+    } catch {
+
+                   
+
+        Write-host "Failed to query services on $server. Error: $_" -ForegroundColor red
+    }
+}
