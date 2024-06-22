@@ -1,0 +1,114 @@
+
+ $servers = @("abc.com")
+
+
+ 
+# Define Microsoft Teams webhook URL
+$TeamsWebhookURL = "123"
+
+# Function to send alert to Microsoft Teams webhook
+
+# Function to send alert to Microsoft Teams webhook
+function Send-TeamsAlert {
+    param(
+        [string]$Message
+    )
+    
+    $Body = @{
+        text = $Message
+    } | ConvertTo-Json
+
+    $Result = Invoke-RestMethod -Method Post -Uri $TeamsWebhookURL -Body $Body -ContentType 'application/json'
+}
+
+# Perform iteration through the servers
+for ($i = 0; $i -lt $servers.Count; $i++) {
+    $server = $servers[$i]
+    
+
+    # Check if server is pingable
+    $pingable = Test-Connection -ComputerName $server -Count 1 -Quiet
+
+    if ($pingable) {
+       
+        write-host "`n $server is  pingable" -ForegroundColor Green
+        # Get service status
+        Invoke-Command -ComputerName $server -ScriptBlock {
+
+             # Function to send alert to Microsoft Teams webhook
+            $TeamsWebhookURL = "yourteamswebhookurl"
+            
+            function Send-TeamsAlert {
+                param(
+                    [string]$Message
+                )
+                
+                $Body = @{
+                    text = $Message
+                } | ConvertTo-Json
+            
+                $Result = Invoke-RestMethod -Method Post -Uri $TeamsWebhookURL -Body $Body -ContentType 'application/json'
+            }
+            # Function to send alert to Microsoft Teams webhook
+
+            $services = Get-Service | Where-Object { $_.Name -like "*jenk*" -or $_.Name -like "*vstsagent.spglobal*" -or $_.Name -like "*azure*"}
+            if ($services) {
+            foreach ($service in $services) {
+           
+            $serviceName = $service.Name
+            $status = $service.Status
+            $server=$env:computername
+            
+
+            Write-host "Service $serviceName Status on $server : $status"
+
+            if($status -ne 'running'){
+            
+                    $mutealert1 = '#'
+                    $mutealert2 = '#'
+                    #$mutealert3 = '#'
+                  if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+                    $alertMessage = "Service '$serviceName' on server '$server' is stopped."
+                    Send-TeamsAlert -Message $alertMessage
+                  }
+                    
+                  write-host "-------------------" -ForegroundColor Blue
+                  Get-Service -Name $serviceName | Start-Service
+                  Start-Sleep 60
+                  $returnval=Get-Service -Name $serviceName | select status |Format-Table -HideTableHeaders
+                  $returnval
+                  write-host "------------------------" -ForegroundColor Blue
+
+                  if($returnval -eq 'running'){
+                            if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+                            $recoveryMessage = "Service '$serviceName' on server '$server' is recovered."
+                            Send-TeamsAlert -Message "$recoveryMessage"}
+                         } else{
+                            if(($serviceName -ne $mutealert1) -and ($serviceName -ne $mutealert2)){
+                            $recoveryError = "Service '$serviceName' on server '$server' not getting started, please check manually."
+                            Send-TeamsAlert -Message "$recoveryError"
+                            }
+                     
+                         }
+                     
+                     
+            }
+        
+        
+        } #foeach services
+
+      } #check if service is stopped       
+        
+        else {
+             Write-host "No services matching the criteria found on $server" -ForegroundColor yellow
+        
+        }
+    } #invoke command block end
+
+    } #if block for server connectivity
+    else {
+        write-host "`n $server is not pingable" -ForegroundColor Red
+    }
+
+
+} #foreach block end
